@@ -38,6 +38,25 @@ def home():
 @app.route("/voice", methods=["GET", "POST"])
 def voice():
     r = VoiceResponse()
+@app.route("/voice", methods=["GET", "POST"])
+def voice():
+    r = VoiceResponse()
+
+    # --- Log call to Make webhook ---
+    import requests, datetime
+    make_webhook_url = "https://hook.us2.make.com/gvhj8nvd3hk9azcmoe3be7vk58uhwq1q"  # <-- your real webhook URL
+    call_data = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "caller_phone": request.form.get('From', 'Unknown'),
+        "Digits Pressed": request.form.get('Digits', ''),
+        "Path": "Main Menu",
+        "Routed To": "Pending"
+    }
+    try:
+        requests.post(make_webhook_url, json=call_data)
+    except Exception as e:
+        print("Error sending webhook:", e)
+    # --------------------------------
 
     # Main menu (press any time)
     g = Gather(
