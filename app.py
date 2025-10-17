@@ -38,9 +38,6 @@ def home():
 @app.route("/voice", methods=["GET", "POST"])
 def voice():
     r = VoiceResponse()
-@app.route("/voice", methods=["GET", "POST"])
-def voice():
-    r = VoiceResponse()
 
     # --- Log call to Make webhook ---
     import requests, datetime
