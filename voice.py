@@ -9,6 +9,7 @@ from app import app  # import the Flask app we already have
 @app.route("/voice", methods=["POST"])
 def voice():
     r = VoiceResponse()
+    print("📞 Incoming call received:", request.values)
     r.say("Hello from Laroque Property Management. Your IVR connection is working.")
 
     # Prepare data to send to Make
