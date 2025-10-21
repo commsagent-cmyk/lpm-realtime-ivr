@@ -21,10 +21,13 @@ def voice():
             "Path": "Main Menu",
             "Routed To": "Pending"
         }
-        # 🔗 Replace this with your actual Make webhook URL
-        webhook_url = "https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956"
-        requests.post(webhook_url, json=data)
-    except Exception as e:
-        print("Make webhook error:", e)
+  webhook_url = "https://hook.us2.make.com/j3yueciix8qibpfkeyxawtzwy70grm956"
+
+try:
+    response = requests.post(webhook_url, json=data, timeout=10)
+    print("✅ Webhook sent to Make:", response.status_code, data)
+except Exception as e:
+    print("❌ Error sending webhook:", e)
+
 
     return Response(str(r), mimetype="text/xml")
