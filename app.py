@@ -207,6 +207,13 @@ def directory():
         r.redirect("/voice")
     return Response(str(r), mimetype="text/xml")
 
+@app.route("/testwebhook")
+def test_webhook():
+    import requests
+    r = requests.post("https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956", json={"test": "ping"})
+    return f"Make.com returned {r.status_code}"
+
+
 # ----------
 # RUN (Render provides PORT env)
 # ----------
