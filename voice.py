@@ -24,13 +24,18 @@ def voice():
         }
   webhook_url = "https://hook.us2.make.com/j3yueciix8qibpfkeyxawtzwy70grm956"
 
-try:
-    headers = {"Content-Type": "application/json"}
-response = requests.post(webhook_url, json=data, headers=headers, timeout=10)
-print("✅ Webhook sent to Make:", response.status_code, response.text, data)
-
-except Exception as e:
-    print("❌ Error sending webhook:", e)
+    try:
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(
+            webhook_url,
+            json=data,
+            headers=headers,
+            timeout=5
+        )
+        print("✅ Webhook sent to Make:", response.status_code)
+        response.close()
+    except Exception as e:
+        print("❌ Error sending webhook:", str(e))
 
 
     return Response(str(r), mimetype="text/xml")
