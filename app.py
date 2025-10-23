@@ -1,16 +1,5 @@
 import requests
 from datetime import datetime
-
-MAKE_WEBHOOK_URL = "https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956" 
-
-def post_to_make(payload: dict):
-    """Fire-and-forget webhook to Make."""
-    try:
-        requests.post(MAKE_WEBHOOK_URL, json=payload, timeout=5)
-    except Exception as e:
-        print("Make webhook error:", e)
-
-
 from flask import Flask, Response, request
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import os
@@ -18,173 +7,85 @@ import os
 app = Flask(__name__)
 
 # ==========
-# CONTACTS (replace with real E.164 numbers like +16135551234)
+# MAKE.COM WEBHOOK URL (for button presses)
 # ==========
-NUM_AMY = "+13439619073"       # Reception, Rentals(1→1), Directory(1), 0
-NUM_LYLA = "+13439976025"      # Tenants(2→1), Emergency(9), Directory(2)
-NUM_MELISSA = "+13025968"   # Rentals(1→2), Tenants(2→2), Directory(3)
-NUM_BERNARD = "+16132867190"   # Directory(4)
-NUM_STEPHANE = "+13439974344"  # Owners(3→1), Directory(5)
+MAKE_WEBHOOK_URL = "https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956"
 
 # ==========
-# VOICE (upgrade to a natural neural voice)
-# Twilio supports Amazon Polly voices in <Say>. Good choices:
-#   Polly.Aria-Neural (warm, modern) or Polly.Matthew-Neural (calm, male)
+# PHONE NUMBERS
+# ==========
+NUM_AMY = "+13439619073"       # Reception
+NUM_LYLA = "+13439976025"      # Urgent maintenance
+NUM_MELISSA = "+13025968"      # Rentals follow-up, tenant billing
+NUM_BERNARD = "+16132867190"   # Directory
+NUM_STEPHANE = "+13439974344"  # Owners
+
+# ==========
+# VOICE
 # ==========
 DEFAULT_VOICE = "Polly.Aria-Neural"
 DEFAULT_LANG = "en-US"
 
 def say(resp: VoiceResponse, text: str):
-    """Helper to keep voice consistent and clean."""
     resp.say(text, voice=DEFAULT_VOICE, language=DEFAULT_LANG)
 
-# ----------
-# Health / root
-# ----------
+# ==========
+# ROOT
+# ==========
 @app.get("/")
 def home():
-    return "✅ LPM Realtime server is alive."
+    return "LPM IVR is running!"
 
-# ----------
-# MAIN ENTRY: /voice (Twilio webhook)
-# ----------
+# ==========
+# MAIN MENU: /voice
+# ==========
 @app.route("/voice", methods=["GET", "POST"])
 def voice():
     r = VoiceResponse()
 
-    # --- Log call to Make webhook ---
-    import requests, datetime
-    make_webhook_url = "https://hook.us2.make.com/r7v51fg3t0aw8hmwi0tdth4i0fmgq2cw"  # <-- your real webhook URL
-    call_data = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "caller_phone": request.form.get('From', 'Unknown'),
-        "Digits Pressed": request.form.get('Digits', ''),
-        "Path": "Main Menu",
-        "Routed To": "Pending"
+    # Log incoming call
+    log_data = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "caller_phone": request.form.get("From", "Unknown"),
+        "Path": "Incoming",
+        "Routed To": "Menu"
     }
     try:
-        requests.post(make_webhook_url, json=call_data)
-    except Exception as e:
-        print("Error sending webhook:", e)
-    # --------------------------------
+        requests.post("https://hook.us2.make.com/r7v51fg3t0aw8hmwi0tdth4i0fmgq2cw", json=log_data, timeout=5)
+    except:
+        pass  # Silent fail
 
-    # Main menu (press any time)
-    g = Gather(
+    # Ask for button → send to Make.com
+    gather = Gather(
         num_digits=1,
-        action="/handle-main",
+        action=MAKE_WEBHOOK_URL,
+        method="POST",
         timeout=6
     )
-    say(g,
+    say(gather,
         "Welcome to Larocque Property Management. "
-        "Our focus is your peace of mind. "
-        "Please make a selection at any time. "
-        "You can press 0 to reach reception. "
-        "If you have an urgent maintenance issue, press 9. "
-        "Press 1 if you're looking to rent a unit or need help with an application. "
-        "Press 2 if you're a current tenant with a maintenance or account question. "
-        "Press 3 if you're a property owner interested in management services for your investment property. "
-        "Press 4 if you know the team member you'd like to reach."
+        "Press 0 for reception. "
+        "Press 9 for urgent maintenance. "
+        "Press 1 for rentals. "
+        "Press 2 for tenant support. "
+        "Press 3 for owner inquiries. "
+        "Press 4 for team directory."
     )
-    r.append(g)
+    r.append(gather)
 
-    # No input: repeat once
-    say(r, "Sorry, I didn't catch that.")
+    # No input
+    say(r, "I didn't catch that.")
     r.redirect("/voice")
+
     return Response(str(r), mimetype="text/xml")
 
-# ----------
-# MAIN HANDLER
-# ----------
+# ==========
+# OPTIONAL: Keep old routes (safe to delete later)
+# ==========
 @app.route("/handle-main", methods=["POST"])
 def handle_main():
-    d = request.form.get("Digits", "")
-    caller = request.form.get("From", "Unknown")
-    call_sid = request.form.get("CallSid", "")
-
-    # Send to Make.com
-    payload = {
-        "Digits": d,
-        "From": caller,
-        "CallSid": call_sid,
-        "Path": "Main Menu"
-    }
-    post_to_make(payload)  # This uses your function at the top!
-
-    # Keep caller on hold with music while Make.com works
+    # This is now handled by Make.com — just hold music
     r = VoiceResponse()
-    r.say("Please wait while we connect you...", voice=DEFAULT_VOICE)
+    r.say("Please hold while we connect you...")
     r.play("http://com.twilio.sounds.music.s3.amazonaws.com/Masurka_op_7_no_1_-_3_4_time_scale.twilio.wav")
-    return Response(str(r), mimetype="text/xml")
-# ----------
-# SUB-MENUS
-# ----------
-@app.route("/rentals", methods=["POST"])
-def rentals():
-    d = request.form.get("Digits", "")
-    r = VoiceResponse()
-    if d == "1":
-        say(r, "Connecting you now.")
-        r.dial(NUM_AMY)
-    elif d == "2":
-        say(r, "Connecting you now.")
-        r.dial(NUM_MELISSA)
-    else:
-        r.redirect("/voice")
-    return Response(str(r), mimetype="text/xml")
-
-@app.route("/tenants", methods=["POST"])
-def tenants():
-    d = request.form.get("Digits", "")
-    r = VoiceResponse()
-    if d == "1":
-        say(r, "Connecting you now.")
-        r.dial(NUM_LYLA)
-    elif d == "2":
-        say(r, "Connecting you now.")
-        r.dial(NUM_MELISSA)
-    else:
-        r.redirect("/voice")
-    return Response(str(r), mimetype="text/xml")
-
-@app.route("/owners", methods=["POST"])
-def owners():
-    d = request.form.get("Digits", "")
-    r = VoiceResponse()
-    if d == "1":
-        say(r, "Connecting you now.")
-        r.dial(NUM_STEPHANE)
-    else:
-        r.redirect("/voice")
-    return Response(str(r), mimetype="text/xml")
-
-@app.route("/directory", methods=["POST"])
-def directory():
-    d = request.form.get("Digits", "")
-    r = VoiceResponse()
-    directory_map = {
-        "1": NUM_AMY,
-        "2": NUM_LYLA,
-        "3": NUM_MELISSA,
-        "4": NUM_BERNARD,
-        "5": NUM_STEPHANE,
-    }
-    if d in directory_map:
-        say(r, "Connecting you now.")
-        r.dial(directory_map[d])
-    else:
-        r.redirect("/voice")
-    return Response(str(r), mimetype="text/xml")
-
-@app.route("/testwebhook")
-def test_webhook():
-    import requests
-    r = requests.post("https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956", json={"test": "ping"})
-    return f"Make.com returned {r.status_code}"
-
-
-# ----------
-# RUN (Render provides PORT env)
-# ----------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    return Response
