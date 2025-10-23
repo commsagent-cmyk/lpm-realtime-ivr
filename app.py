@@ -98,68 +98,23 @@ def voice():
 @app.route("/handle-main", methods=["POST"])
 def handle_main():
     d = request.form.get("Digits", "")
+    caller = request.form.get("From", "Unknown")
+    call_sid = request.form.get("CallSid", "")
+
+    # Send to Make.com
+    payload = {
+        "Digits": d,
+        "From": caller,
+        "CallSid": call_sid,
+        "Path": "Main Menu"
+    }
+    post_to_make(payload)  # This uses your function at the top!
+
+    # Keep caller on hold with music while Make.com works
     r = VoiceResponse()
-
-    if d == "9":
-        say(r, "Please hold. Your call will be directed immediately.")
-        r.dial(NUM_LYLA)  # Urgent maintenance → Lyla
-        return Response(str(r), mimetype="text/xml")
-
-    if d == "1":
-        g = Gather(num_digits=1, action="/rentals", timeout=6)
-        say(g,
-            "If you're calling about a property you saw online or want to learn how to apply, press 1. "
-            "If you've already submitted an application and would like to follow up, press 2."
-        )
-        r.append(g)
-        say(r, "Sorry, I didn't catch that.")
-        r.redirect("/voice")
-        return Response(str(r), mimetype="text/xml")
-
-    if d == "2":
-        g = Gather(num_digits=1, action="/tenants", timeout=6)
-        say(g,
-            "For maintenance or repairs, press 1. "
-            "For rent, billing, or account questions, press 2."
-        )
-        r.append(g)
-        say(r, "Sorry, I didn't catch that.")
-        r.redirect("/voice")
-        return Response(str(r), mimetype="text/xml")
-
-    if d == "3":
-        g = Gather(num_digits=1, action="/owners", timeout=6)
-        say(g, "If you'd like to speak with someone about management services for your property, press 1.")
-        r.append(g)
-        say(r, "Sorry, I didn't catch that.")
-        r.redirect("/voice")
-        return Response(str(r), mimetype="text/xml")
-
-    if d == "4":
-        g = Gather(num_digits=1, action="/directory", timeout=8)
-        say(g,
-            "To reach a team member directly, choose from the following options. "
-            "Press 1 for Amy. "
-            "Press 2 for Lyla. "
-            "Press 3 for Melissa. "
-            "Press 4 for Bernard. "
-            "Press 5 for Stephane."
-        )
-        r.append(g)
-        say(r, "Sorry, I didn't catch that.")
-        r.redirect("/voice")
-        return Response(str(r), mimetype="text/xml")
-
-    if d == "0":
-        say(r, "Transferring you to reception.")
-        r.dial(NUM_AMY)
-        return Response(str(r), mimetype="text/xml")
-
-    # Invalid
-    say(r, "Sorry, I didn't catch that.")
-    r.redirect("/voice")
+    r.say("Please wait while we connect you...", voice=DEFAULT_VOICE)
+    r.play("http://com.twilio.sounds.music.s3.amazonaws.com/Masurka_op_7_no_1_-_3_4_time_scale.twilio.wav")
     return Response(str(r), mimetype="text/xml")
-
 # ----------
 # SUB-MENUS
 # ----------
