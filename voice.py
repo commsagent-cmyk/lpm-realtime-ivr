@@ -3,52 +3,62 @@ from twilio.twiml.voice_response import VoiceResponse, Gather
 import requests
 from datetime import datetime
 
-from app import app  # Keep this if you're using the same app
+# Create a new Flask app just for this file
+app = Flask(__name__)
 
-@app.route("/voice", methods=["POST"])
+# ==========
+# MAKE.COM WEBHOOK (button presses go here)
+# ==========
+MAKE_WEBHOOK_URL = "https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956"
+
+# ==========
+# MAIN MENU: /voice
+# ==========
+@app.route("/voice", methods=["GET", "POST"])
 def voice():
     r = VoiceResponse()
 
-    # --- Say welcome ---
-    r.say("Welcome to Larocque Property Management.", voice="Polly.Aria-Neural")
+    # Log incoming call to Make.com
+    log_data = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "caller_phone": request.values.get("From", "Unknown"),
+        "Path": "Incoming Call",
+        "Routed To": "Menu"
+    }
+    try:
+        requests.post("https://hook.us2.make.com/r7v51fg3t0aw8hmwi0tdth4i0fmgq2cw", json=log_data, timeout=5)
+    except:
+        pass  # Don't crash if webhook fails
 
-    # --- Ask to press a button AND send it to Make.com ---
+    # Ask caller to press a button → send to Make.com
     gather = Gather(
         num_digits=1,
-        action="https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956",  # Fixed URL
+        action=MAKE_WEBHOOK_URL,
         method="POST",
-        timeout=5
+        timeout=6
     )
     gather.say(
+        "Welcome to Larocque Property Management. "
         "Press 0 for reception. "
         "Press 9 for urgent maintenance. "
-        "Press 1 for rentals. "
-        "Press 2 for tenant support. "
-        "Press 3 for owner inquiries. "
-        "Press 4 for team directory.",
+        "1 for rentals. "
+        "2 for tenant support. "
+        "3 for owner inquiries. "
+        "4 for team directory.",
         voice="Polly.Aria-Neural"
     )
     r.append(gather)
 
-    # --- If no press: repeat ---
+    # If no input
     r.say("I didn't catch that.")
     r.redirect("/voice")
 
-    # --- Log the incoming call to Make.com ---
-    data = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "caller_phone": request.values.get("From"),
-        "caller_name": request.values.get("CallerName"),
-        "Digits Pressed": "",  # Will be filled on next request
-        "Path": "Incoming Call",
-        "Routed To": "Menu"
-    }
-
-    webhook_url = "https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956"
-    try:
-        requests.post(webhook_url, json=data, timeout=5)
-        print("Webhook sent: Incoming call logged")
-    except Exception as e:
-        print("Webhook error:", e)
-
     return Response(str(r), mimetype="text/xml")
+
+# ==========
+# RUN THE SERVER
+# ==========
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
