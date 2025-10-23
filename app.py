@@ -1,3 +1,16 @@
+import requests
+from datetime import datetime
+
+MAKE_WEBHOOK_URL = "https://hook.us2.make.com/3jyuecix8qbipfkeyxawtzwy70grm956" 
+
+def post_to_make(payload: dict):
+    """Fire-and-forget webhook to Make."""
+    try:
+        requests.post(MAKE_WEBHOOK_URL, json=payload, timeout=5)
+    except Exception as e:
+        print("Make webhook error:", e)
+
+
 from flask import Flask, Response, request
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import os
